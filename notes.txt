@@ -1,0 +1,101 @@
+SkillHub:
+SkilHub – wskazuje na płynność i łatwość nauki.
++ load balancer
++ polly
++ elastic search
++ redis
+
+User Service (Serwis Użytkowników)
+
+Odpowiedzialny za rejestrację, logowanie, zarządzanie kontami użytkowników, rolami (uczeń, nauczyciel, admin).
+Obsługuje tokeny JWT do autoryzacji oraz uwierzytelniania.
+Technologie: ASP.NET Core + IdentityServer4 (dla autoryzacji).
+
+Course Service (Serwis Kursów)
+Zarządza kursami, kategoriami kursów, przypisywaniem kursów do nauczycieli i uczniów.
+Może również obsługiwać rekomendacje kursów na podstawie zainteresowań użytkownika.
+Technologie: ASP.NET Core, Entity Framework (dla bazy danych), RabbitMQ (do synchronizacji z innymi serwisami).
+
+Lesson Service (Serwis Lekcji)
+Zarządza poszczególnymi lekcjami w kursach, materiałami edukacyjnymi (wideo, PDF, prezentacje), quizami.
+Odpowiada za upload i przechowywanie multimediów (możesz tu rozważyć np. integrację z S3 dla przechowywania plików w chmurze).
+Technologie: ASP.NET Core, RabbitMQ do komunikacji z innymi serwisami (np. powiadomienia).
+
+Quiz Service (Serwis Quizów)
+Odpowiedzialny za tworzenie, przechowywanie i ocenianie quizów oraz testów.
+Odpowiada za wyniki testów i przypisywanie ocen uczniom.
+Technologie: ASP.NET Core, bazy danych NoSQL (np. MongoDB, dla przechowywania wyników w sposób nestrukturyzowany).
+
+Notification Service (Serwis Powiadomień)
+Odpowiada za wysyłanie powiadomień e-mail lub push, np. o nowych kursach, zakończeniu quizów, wynikach.
+Używa RabbitMQ lub Kafka do przetwarzania wiadomości między mikroserwisami.
+Technologie: ASP.NET Core, RabbitMQ, np. SMTP do wysyłki e-maili.
+
+Analytics Service (Serwis Analityczny)
+Odpowiada za generowanie raportów dotyczących aktywności użytkowników, wyników quizów, popularności kursów.
+Może wykorzystywać ElasticSearch do agregowania danych i tworzenia szybkich wyszukiwań.
+Technologie: ASP.NET Core, ElasticSearch, RabbitMQ do zbierania danych z innych serwisów.
+
+
+Komunikacja między mikroserwisami:
+
+HTTP/REST API:
+Bezpośrednia komunikacja między mikroserwisami za pomocą żądań HTTP (GET, POST, PUT, DELETE).
+Może być używane do synchronizacji danych, np. gdy kurs musi pobrać informacje o użytkowniku.
+
+Komunikaty asynchroniczne (RabbitMQ, Kafka):
+Idealne rozwiązanie do obsługi zdarzeń asynchronicznych, takich jak powiadomienia, przetwarzanie płatności czy kolejkowanie zadań.
+
+Zarządzanie konfiguracją i rejestracja serwisów ??
+
+Ważnym aspektem architektury mikroserwisowej jest zarządzanie konfiguracją i rejestracja serwisów:
+
+a) Service Discovery:
+Umożliwia dynamiczne odnajdywanie usług w ekosystemie mikroserwisów. Możesz użyć narzędzi takich jak Consul lub Eureka do zarządzania rejestracją i odnajdywaniem usług.
+b) API Gateway:
+Wszystkie żądania użytkowników powinny być kierowane przez centralną bramę API (np. Ocelot dla .NET), która zarządza routingiem do odpowiednich mikroserwisów. API Gateway także obsługuje uwierzytelnianie, ograniczanie liczby żądań (rate-limiting) i inne funkcje.
+
+
+1. Podstawowe zasady obsługi wyjątków w mikroserwisach
+Lokalna obsługa wyjątków: Każdy mikroserwis powinien być odpowiedzialny za obsługę wyjątków, które mogą wystąpić w jego zakresie działania. Ważne jest, aby mikroserwisy były samodzielne i obsługiwały błędy na własnym poziomie.
+
+Zachowanie niezależności: Błąd w jednym mikroserwisie nie powinien powodować awarii całej aplikacji. Mikroserwisy powinny być odporne na błędy i reagować w sposób kontrolowany.
+
+Standaryzacja komunikatów o błędach: Komunikaty o błędach powinny być zrozumiałe i standaryzowane, aby łatwo było diagnozować problemy.
+
+Asynchroniczne mechanizmy komunikacyjne: Podczas korzystania z mechanizmów takich jak RabbitMQ, odpowiednie zarządzanie błędami powinno obejmować strategię ponawiania (retry) lub odrzuceń (dead-letter queues).
+
+2. Centralna obsługa wyjątków (Global Exception Handling) w ASP.NET Core
+W .NET mikroserwisy oparte na ASP.NET Core pozwalają na wdrożenie globalnej obsługi wyjątków za pomocą mechanizmu middleware. Oto kroki, jak to wdrożyć:
+
+a) Middleware do obsługi wyjątków
+Tworzysz middleware, który przechwytuje wszystkie nieobsłużone wyjątki w aplikacji i odpowiednio nimi zarządza, np. zwraca odpowiednie kody HTTP oraz loguje błędy.
+
+b) Specyficzne wyjątki (Custom Exceptions)
+Warto definiować własne wyjątki specyficzne dla poszczególnych domen aplikacji (np. UserNotFoundException, CourseNotFoundException). Dzięki temu możesz lepiej reagować na konkretne błędy:
+
+ Zarządzanie wyjątkami w komunikacji między mikroserwisami
+Jeśli mikroserwisy komunikują się za pomocą HTTP, REST, gRPC lub komunikatów asynchronicznych (RabbitMQ, Kafka), zarządzanie wyjątkami i błędami staje się bardziej złożone. Ważne jest, aby błędy, które wystąpią w jednym mikroserwisie, nie propagowały się do innych w sposób niekontrolowany.
+
+a) HTTP Exceptions
+W przypadku komunikacji HTTP mikroserwisy powinny odpowiednio zarządzać błędami i zwracać właściwe kody statusu HTTP. Oto kilka popularnych kodów błędów:
+
+400 Bad Request – Niepoprawne dane wejściowe.
+401 Unauthorized – Brak autoryzacji.
+403 Forbidden – Brak uprawnień.
+404 Not Found – Zasób nie został znaleziony.
+500 Internal Server Error – Błąd serwera.
+
+Asynchroniczna komunikacja (RabbitMQ, Kafka)
+W przypadku asynchronicznej komunikacji ważne jest, aby zaimplementować mechanizmy obsługi błędów w wiadomościach, takie jak ponawianie (retry) i dead-letter queues.
+
+Retry: Jeśli komunikat nie zostanie przetworzony poprawnie, można go ponowić po pewnym czasie.
+Dead-letter queues: Wiadomości, które nie udało się przetworzyć po określonej liczbie prób, są przekazywane do osobnej kolejki (dead-letter queue), gdzie mogą być analizowane lub obsługiwane ręcznie.
+
+Logowanie i monitorowanie błędów
+a) Centralne logowanie
+Mikroserwisy powinny mieć system scentralizowanego logowania błędów. Możesz użyć narzędzi takich jak Elastic Stack (ELK), Seq, lub Serilog, aby zbierać logi z różnych mikroserwisów i analizować je centralnie.
+
+b) Monitorowanie
+Prometheus + Grafana: Do monitorowania stanu mikroserwisów i wykrywania problemów w czasie rzeczywistym.
+Health Checks: Każdy mikroserwis powinien oferować endpoint zdrowia, który pozwala na monitor
